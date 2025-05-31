@@ -1,0 +1,6 @@
+MONGO_URI=mongodb://localhost:27017/artifyframe
+JWT_SECRET=yourjwtsecret
+EMAIL_USER=yourgmail@gmail.com
+EMAIL_PASS=yourgmailapppassword
+REDIS_URL=redis://localhost:6379
+PORT=5000
