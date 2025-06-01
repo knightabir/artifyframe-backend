@@ -32,12 +32,12 @@ const addressSchema = new mongoose.Schema({
         type: String,
         required: [true, "Zip code is required"],
         trim: true,
-        match: [/^\d{5}(-\d{4})?$/, "Please provide a valid zip code"]
+        match: [/^\d{6}$/, "Please provide a valid Indian pin code"]
     },
     country: {
         type: String,
         required: [true, "Country is required"],
-        default: "United States",
+        default: "India",
         trim: true
     },
     landmark: {
