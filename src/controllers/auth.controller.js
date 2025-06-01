@@ -57,6 +57,10 @@ export const login = async (req, res, next) => {
             return res.status(401).json({ status: "error", message: "Invalid credentials", data: null });
         }
 
+        // Update the user last login date
+        user.lastLogin = Date.now();
+        await user.save();
+
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
         logger.info(`Login successful - ${req.method} ${req.url}`);
         res.status(200).json({ status: "success", message: "Login successful", data: { token } });

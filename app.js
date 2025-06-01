@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import connectDb from './src/config/db.js';
 import errorHandler from './src/middlewares/errorHandler.middleware.js';
 import authRoutes from './src/routes/auth.route.js';
+import { apiLimiter } from './src/middlewares/ratelimit.middleware.js';
 
 
 dotenv.config();
@@ -16,6 +17,9 @@ connectDb();
 // Middleware
 app.use(express.json());
 app.use(helmet());
+
+// rate limiter
+app.use(apiLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);

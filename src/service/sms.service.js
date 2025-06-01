@@ -1,15 +1,29 @@
 import Queue from "bull";
 import logger from "../utils/logger.js";
+import twilio from 'twilio';
+import dotenv from 'dotenv';
 
-const sendQueue = new Queue('send', process.env.REDIS_URL);
+dotenv.config();
 
-export const sendSMS = async (phone, message) => {
-    // placeholder for sms gateway integration
-    await sendQueue.add({ phone, message });
-};
+
+const smsQueue = new Queue('sms', process.env.REDIS_URL);
 
 smsQueue.process(async (job) => {
     const { phone, message } = job.data;
-    // placeholder for sms gateway integration
-    logger.info(`Sent SMS to ${phone}: ${message}`);
+    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    try {
+        await client.messages.create({
+            body: message,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: phone,
+        });
+        console.log(`SMS sent to ${phone}`);
+    } catch (error) {
+        console.error(`Failed to send SMS to ${phone}:`, error);
+        throw error; // Retry if configured
+    }
 });
+
+export const sendSMS = async (phone, message) => {
+    await smsQueue.add({ phone, message });
+};
