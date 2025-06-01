@@ -2,6 +2,8 @@ import express from 'express';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import connectDb from './src/config/db.js';
+import errorHandler from './src/middlewares/errorHandler.middleware.js';
+import authRoutes from './src/routes/auth.route.js';
 
 
 dotenv.config();
@@ -15,7 +17,11 @@ connectDb();
 app.use(express.json());
 app.use(helmet());
 
-//
+// Routes
+app.use('/api/auth', authRoutes);
+
+//Error Handler
+app.use(errorHandler);
 
 
 const PORT = process.env.PORT || 5000;
