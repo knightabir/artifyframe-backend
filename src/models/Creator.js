@@ -99,10 +99,6 @@ const creatorSchema = new mongoose.Schema({
             type: String,
             trim: true
         },
-        apartment: {
-            type: String,
-            trim: true
-        },
         city: {
             type: String,
             trim: true
@@ -116,10 +112,6 @@ const creatorSchema = new mongoose.Schema({
             trim: true
         },
         country: {
-            type: String,
-            trim: true
-        },
-        landmark: {
             type: String,
             trim: true
         }
