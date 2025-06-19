@@ -129,10 +129,12 @@ const creatorSchema = new mongoose.Schema({
         type: Date
     },
     profileImage: {
-        type: String
+        public_id: { type: String },
+        url: { type: String }
     },
     coverImage: {
-        type: String
+        public_id: { type: String },
+        url: { type: String }
     },
     isProfileCompleted: {
         type: Boolean,

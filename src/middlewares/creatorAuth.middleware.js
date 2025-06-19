@@ -9,6 +9,7 @@ const creatorAuth = async (req, res, next) => {
 
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             logger.warn(`No token provided - ${req.metho} ${req.url}`);
+            return res.status(401).json({ status: "error", message: "Authentication failed", data: null });
         }
 
         
@@ -17,7 +18,6 @@ const creatorAuth = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const creator = await Creator.findById(decoded.id);
         
-        console.log(decoded);
         if (!creator) {
             logger.warn(`Creator not found - ${req.method} ${req.url}`);
         }

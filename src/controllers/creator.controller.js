@@ -302,7 +302,10 @@ export const addOrUpdateProfilePicture = async (req, res, next) => {
             logger.warn(`Creator not found - ${req.method} ${req.url}`);
             return res.status(404).json({ status: "error", message: "Creator not found", data: null });
         }
-        creator.profileImage = req.file.path;
+        creator.profileImage = {
+            public_id: req.file.filename || req.file.public_id,
+            url: req.file.path || req.file.secure_url
+        };
         await creator.save();
         logger.info(`Profile picture uploaded/updated successfully - ${req.method} ${req.url}`);
         res.status(200).json({
@@ -328,7 +331,10 @@ export const addOrUpdateCoverPicture = async (req, res, next) => {
             logger.warn(`Creator not found - ${req.method} ${req.url}`);
             return res.status(404).json({ status: "error", message: "Creator not found", data: null });
         }
-        creator.coverImage = req.file.path;
+        creator.coverImage = {
+            public_id: req.file.filename || req.file.public_id,
+            url: req.file.path || req.file.secure_url
+        };
         await creator.save();
         logger.info(`Cover picture uploaded/updated successfully - ${req.method} ${req.url}`);
         res.status(200).json({
