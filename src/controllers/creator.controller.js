@@ -290,14 +290,54 @@ export const addOrUpdateGovernmentId = async (req, res, next) => {
     }
 };
 
-// add profile picture
-export const addProfilePicture = async (req, res, next) => { };
+// add or update profile picture
+export const addOrUpdateProfilePicture = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            logger.warn(`No file uploaded - ${req.method} ${req.url}`);
+            return res.status(400).json({ status: "error", message: "No file uploaded", data: null });
+        }
+        const creator = await Creator.findById(req.user._id);
+        if (!creator) {
+            logger.warn(`Creator not found - ${req.method} ${req.url}`);
+            return res.status(404).json({ status: "error", message: "Creator not found", data: null });
+        }
+        creator.profileImage = req.file.path;
+        await creator.save();
+        logger.info(`Profile picture uploaded/updated successfully - ${req.method} ${req.url}`);
+        res.status(200).json({
+            status: "success",
+            message: "Profile picture uploaded/updated successfully",
+            data: { profileImage: creator.profileImage }
+        });
+    } catch (error) {
+        logger.error(`${error.message} - ${req.method} ${req.url}`);
+        next(error);
+    }
+};
 
-// update profile picture
-export const updateProfilePicture = async (req, res, next) => { };
-
-// add cover picture
-export const addCoverPicture = async (req, res, next) => { };
-
-// update cover picture
-export const updateCoverPicture = async (req, res, next) => { };
+// add or update cover picture
+export const addOrUpdateCoverPicture = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            logger.warn(`No file uploaded - ${req.method} ${req.url}`);
+            return res.status(400).json({ status: "error", message: "No file uploaded", data: null });
+        }
+        const creator = await Creator.findById(req.user._id);
+        if (!creator) {
+            logger.warn(`Creator not found - ${req.method} ${req.url}`);
+            return res.status(404).json({ status: "error", message: "Creator not found", data: null });
+        }
+        creator.coverImage = req.file.path;
+        await creator.save();
+        logger.info(`Cover picture uploaded/updated successfully - ${req.method} ${req.url}`);
+        res.status(200).json({
+            status: "success",
+            message: "Cover picture uploaded/updated successfully",
+            data: { coverImage: creator.coverImage }
+        });
+    } catch (error) {
+        logger.error(`${error.message} - ${req.method} ${req.url}`);
+        next(error);
+    }
+};

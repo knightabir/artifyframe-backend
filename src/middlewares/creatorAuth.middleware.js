@@ -2,6 +2,7 @@ import jwt, { decode } from "jsonwebtoken";
 import Creator from "../models/Creator.js";
 import logger from "../utils/logger.js";
 
+
 const creatorAuth = async (req, res, next) => {
     try {
         const authHeader = req.header("Authorization");
@@ -29,5 +30,4 @@ const creatorAuth = async (req, res, next) => {
         next(error);
     }
 }
-
-export default creatorAuth;
+ export default creatorAuth;
