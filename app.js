@@ -28,7 +28,7 @@ app.use(apiLimiter);
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/creators', creatorRoutes);
+app.use('/api/creator', creatorRoutes);
 app.use('/api/printers', printerRoutes);
 
 // Handle undefined routes

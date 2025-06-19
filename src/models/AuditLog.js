@@ -9,7 +9,7 @@ const auditLogSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Entity type is required'],
         enum: {
-            values: ['USER', 'ORDER', 'TRANSACTION', 'COMMISSION', 'CREATOR', 'SHIPPING'],
+            values: ['USER', 'ORDER', 'TRANSACTION', 'COMMISSION', 'CREATOR', 'SHIPPING', 'ARTWORK'],
             message: 'Invalid entity type'
         },
         index: true
@@ -30,7 +30,7 @@ const auditLogSchema = new mongoose.Schema({
     },
     performedBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Creator',
         required: [true, 'Performer ID is required'],
         index: true
     },
@@ -51,7 +51,7 @@ const auditLogSchema = new mongoose.Schema({
 }, {
     timestamps: { createdAt: 'createdAt', updatedAt: false }, // We don't need updatedAt for audit logs
     toJSON: {
-        transform: function(doc, ret) {
+        transform: function (doc, ret) {
             // Convert meta Map to plain object for JSON
             if (ret.meta instanceof Map) {
                 ret.meta = Object.fromEntries(ret.meta);
@@ -66,7 +66,7 @@ auditLogSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
 auditLogSchema.index({ performedBy: 1, createdAt: -1 });
 
 // Static method to log an action
-auditLogSchema.statics.logAction = async function(params) {
+auditLogSchema.statics.logAction = async function (params) {
     const {
         entityType,
         entityId,
@@ -91,25 +91,25 @@ auditLogSchema.statics.logAction = async function(params) {
 };
 
 // Static method to find logs by entity
-auditLogSchema.statics.findByEntity = function(entityType, entityId) {
+auditLogSchema.statics.findByEntity = function (entityType, entityId) {
     return this.find({
         entityType,
         entityId
     })
-    .sort({ createdAt: -1 })
-    .populate('performedBy', 'name email');
+        .sort({ createdAt: -1 })
+        .populate('performedBy', 'name email');
 };
 
 // Static method to find logs by user
-auditLogSchema.statics.findByUser = function(userId) {
+auditLogSchema.statics.findByUser = function (userId) {
     return this.find({
         performedBy: userId
     })
-    .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 });
 };
 
 // Static method to get activity statistics
-auditLogSchema.statics.getActivityStats = async function(startDate, endDate) {
+auditLogSchema.statics.getActivityStats = async function (startDate, endDate) {
     return this.aggregate([
         {
             $match: {

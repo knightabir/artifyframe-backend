@@ -355,8 +355,13 @@ export const addOrUpdateCoverPicture = async (req, res, next) => {
 // Upload artwork
 export const uploadArtwork = async (req, res, next) => {
     try {
-        const { title, description, price, commissionRate, categories, tags, dimensions } = req.body;
-        
+        if (req.body == undefined || req.body == null) {
+            return next(createError(400, 'All fields are required'));
+        }
+        const { title, description, price, commissionRate, categories, tags, height, width, unit } = req.body;
+
+        console.log(req.body);
+
         if (!req.files || !req.files.image || !req.files.printableVersion) {
             return next(createError(400, 'Both preview image and printable version are required'));
         }
@@ -375,15 +380,15 @@ export const uploadArtwork = async (req, res, next) => {
         const artwork = new Artwork({
             title,
             description,
-            creatorId: req.creator._id,
+            creatorId: req.user.id,
             price,
             commissionRate,
             categories: categories.split(','),
             tags: tags ? tags.split(',') : [],
             dimensions: {
-                width: dimensions.width,
-                height: dimensions.height,
-                unit: dimensions.unit || 'INCHES'
+                width: width,
+                height: height,
+                unit: unit || 'INCHES'
             },
             image: {
                 public_id: imageResult.public_id,
@@ -402,8 +407,9 @@ export const uploadArtwork = async (req, res, next) => {
             entityType: 'ARTWORK',
             entityId: artwork._id,
             action: 'CREATE',
-            userId: req.creator._id,
+            userId: req.user.id,
             userType: 'CREATOR',
+            performedBy: req.user.id,
             metadata: {
                 title: artwork.title,
                 price: artwork.price.toString(),
@@ -425,7 +431,7 @@ export const uploadArtwork = async (req, res, next) => {
 export const getCreatorArtworks = async (req, res, next) => {
     try {
         const artworks = await Artwork.findByCreator(req.creator._id);
-        
+
         res.status(200).json({
             success: true,
             data: artworks
@@ -460,7 +466,7 @@ export const getArtworkDetails = async (req, res, next) => {
 export const updateArtwork = async (req, res, next) => {
     try {
         const { title, description, price, commissionRate, categories, tags, dimensions, status } = req.body;
-        
+
         const artwork = await Artwork.findOne({
             _id: req.params.artworkId,
             creatorId: req.creator._id
@@ -475,12 +481,12 @@ export const updateArtwork = async (req, res, next) => {
             if (req.files.image) {
                 // Delete old image
                 await cloudinary.uploader.destroy(artwork.image.public_id);
-                
+
                 // Upload new image
                 const imageResult = await cloudinary.uploader.upload(req.files.image[0].path, {
                     folder: 'artworks/previews'
                 });
-                
+
                 artwork.image = {
                     public_id: imageResult.public_id,
                     url: imageResult.secure_url
@@ -490,13 +496,13 @@ export const updateArtwork = async (req, res, next) => {
             if (req.files.printableVersion) {
                 // Delete old printable version
                 await cloudinary.uploader.destroy(artwork.printableVersion.public_id);
-                
+
                 // Upload new printable version
                 const printableResult = await cloudinary.uploader.upload(req.files.printableVersion[0].path, {
                     folder: 'artworks/printable',
                     quality: 100
                 });
-                
+
                 artwork.printableVersion = {
                     public_id: printableResult.public_id,
                     url: printableResult.secure_url
@@ -620,7 +626,7 @@ export const getAuditLogs = async (req, res, next) => {
 export const getSalesStats = async (req, res, next) => {
     try {
         const artworks = await Artwork.find({ creatorId: req.creator._id });
-        
+
         const stats = {
             totalArtworks: artworks.length,
             totalSales: artworks.reduce((sum, artwork) => sum + artwork.totalSales, 0),
