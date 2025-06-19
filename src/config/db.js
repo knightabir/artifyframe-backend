@@ -4,17 +4,16 @@ import logger from "../utils/logger.js";
 
 dotenv.config();
 
-
-
-const connectDb = async () => {
+export const connectDB = async () => {
     try {
-        await mongoose.connect(process.env.MONGO_URI);
-        logger.info('Database connected ✅');
+        const conn = await mongoose.connect(process.env.MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+
+        logger.info(`MongoDB Connected: ${conn.connection.host}`);
     } catch (error) {
-        console.error(error);
-        console.log('🚨 ' + error);
+        logger.error(`Error: ${error.message}`);
         process.exit(1);
     }
-}
-
-export default connectDb;
+};

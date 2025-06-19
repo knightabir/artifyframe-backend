@@ -53,38 +53,100 @@ const addressSchema = new mongoose.Schema({
 });
 
 const userSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toString(),
+    },
     name: {
         firstName: {
             type: String,
-            required: [true, "First name is required"],
-            minlength: [2, "First name must be at least 2 characters long"],
-            maxlength: [50, "First name cannot exceed 50 characters"],
+            required: [true, 'First name is required'],
             trim: true
         },
         lastName: {
             type: String,
-            required: [true, "Last name is required"],
-            minlength: [2, "Last name must be at least 2 characters long"],
-            maxlength: [50, "Last name cannot exceed 50 characters"],
+            required: [true, 'Last name is required'],
             trim: true
         }
     },
     email: {
         type: String,
-        required: [true, "Email is required"],
+        required: [true, 'Email is required'],
         unique: true,
-        lowercase: true,
         trim: true,
-        match: [
-            /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-            "Please provide a valid email address",
-        ],
+        lowercase: true,
+        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
     },
     password: {
         type: String,
-        required: [true, "Password is required"],
-        minlength: [6, "Password must be at least 6 characters long"],
-        select: false,
+        required: [true, 'Password is required'],
+        minlength: [8, 'Password must be at least 8 characters long'],
+        select: false
+    },
+    phone: {
+        type: String,
+        required: [true, 'Phone number is required'],
+        unique: true
+    },
+    role: {
+        type: String,
+        enum: ['USER', 'ADMIN', 'CREATOR', 'PRINTER'],
+        default: 'USER'
+    },
+    address: {
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String,
+        country: String
+    },
+    profilePicture: {
+        public_id: String,
+        url: String
+    },
+    isEmailVerified: {
+        type: Boolean,
+        default: false
+    },
+    isPhoneVerified: {
+        type: Boolean,
+        default: false
+    },
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
+    phoneVerificationCode: String,
+    phoneVerificationExpires: Date,
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+    lastLogin: Date,
+    status: {
+        type: String,
+        enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED'],
+        default: 'ACTIVE'
+    },
+    preferences: {
+        notifications: {
+            email: {
+                type: Boolean,
+                default: true
+            },
+            sms: {
+                type: Boolean,
+                default: true
+            },
+            marketing: {
+                type: Boolean,
+                default: false
+            }
+        },
+        language: {
+            type: String,
+            default: 'en'
+        },
+        currency: {
+            type: String,
+            default: 'INR'
+        }
     },
     addresses: {
         type: [addressSchema],
@@ -96,50 +158,20 @@ const userSchema = new mongoose.Schema({
             },
             message: "Only one address can be set as default"
         }
-    },
-    phoneNumber: {
-        type: String,
-        required: [true, "Phone number is required"],
-        trim: true,
-        match: [/^[\+]?[1-9][\d]{0,15}$/, "Please provide a valid phone number"]
-    },
-    role: {
-        type: String,
-        enum: {
-            values: ["user", "admin", "printer", "designer"],
-            message: "Role must be one of: user, admin, printer, designer"
-        },
-        default: "user",
-    },
-    consent: {
-        type: Boolean,
-        required: [true, "Consent is required"],
-        validate: {
-            validator: function(consent) {
-                return consent === true;
-            },
-            message: "You must accept the terms and conditions"
-        }
-    },
-    isActive: {
-        type: Boolean,
-        default: true
-    },
-    lastLogin: {
-        type: Date
-    },
-    profileImage: {
-        type: String
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
 });
 
 // Indexes for better query performance
 userSchema.index({ email: 1 });
-userSchema.index({ "addresses.isDefault": 1 });
+userSchema.index({ phone: 1 });
 userSchema.index({ role: 1 });
-userSchema.index({ isActive: 1 });
+userSchema.index({ status: 1 });
+userSchema.index({ 'name.firstName': 1, 'name.lastName': 1 });
+userSchema.index({ "addresses.isDefault": 1 });
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
@@ -302,6 +334,44 @@ userSchema.methods.toJSON = function() {
     const userObject = this.toObject();
     delete userObject.password;
     return userObject;
+};
+
+// Generate verification token
+userSchema.methods.generateVerificationToken = function() {
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    this.emailVerificationToken = crypto
+        .createHash('sha256')
+        .update(token)
+        .digest('hex');
+        
+    this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    
+    return token;
+};
+
+// Generate phone verification code
+userSchema.methods.generatePhoneVerificationCode = function() {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    this.phoneVerificationCode = code;
+    this.phoneVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    
+    return code;
+};
+
+// Generate password reset token
+userSchema.methods.generatePasswordResetToken = function() {
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    this.resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(token)
+        .digest('hex');
+        
+    this.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    
+    return token;
 };
 
 const User = mongoose.model("User", userSchema);

@@ -3,6 +3,10 @@ import { sendResetPasswordEmail } from "../service/email.service.js";
 import jwt from "jsonwebtoken";
 import logger from "../utils/logger.js";
 import dotenv from "dotenv";
+import Artwork from '../models/Artwork.js';
+import AuditLog from '../models/AuditLog.js';
+import cloudinary from '../config/cloudinary.js';
+import { createError } from '../utils/error.js';
 
 dotenv.config();
 
@@ -344,6 +348,296 @@ export const addOrUpdateCoverPicture = async (req, res, next) => {
         });
     } catch (error) {
         logger.error(`${error.message} - ${req.method} ${req.url}`);
+        next(error);
+    }
+};
+
+// Upload artwork
+export const uploadArtwork = async (req, res, next) => {
+    try {
+        const { title, description, price, commissionRate, categories, tags, dimensions } = req.body;
+        
+        if (!req.files || !req.files.image || !req.files.printableVersion) {
+            return next(createError(400, 'Both preview image and printable version are required'));
+        }
+
+        // Upload preview image to Cloudinary
+        const imageResult = await cloudinary.uploader.upload(req.files.image[0].path, {
+            folder: 'artworks/previews'
+        });
+
+        // Upload high-resolution version to Cloudinary with better quality
+        const printableResult = await cloudinary.uploader.upload(req.files.printableVersion[0].path, {
+            folder: 'artworks/printable',
+            quality: 100
+        });
+
+        const artwork = new Artwork({
+            title,
+            description,
+            creatorId: req.creator._id,
+            price,
+            commissionRate,
+            categories: categories.split(','),
+            tags: tags ? tags.split(',') : [],
+            dimensions: {
+                width: dimensions.width,
+                height: dimensions.height,
+                unit: dimensions.unit || 'INCHES'
+            },
+            image: {
+                public_id: imageResult.public_id,
+                url: imageResult.secure_url
+            },
+            printableVersion: {
+                public_id: printableResult.public_id,
+                url: printableResult.secure_url
+            }
+        });
+
+        await artwork.save();
+
+        // Create audit log
+        await AuditLog.create({
+            entityType: 'ARTWORK',
+            entityId: artwork._id,
+            action: 'CREATE',
+            userId: req.creator._id,
+            userType: 'CREATOR',
+            metadata: {
+                title: artwork.title,
+                price: artwork.price.toString(),
+                commissionRate: artwork.commissionRate
+            }
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Artwork uploaded successfully',
+            data: artwork
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get creator's artworks
+export const getCreatorArtworks = async (req, res, next) => {
+    try {
+        const artworks = await Artwork.findByCreator(req.creator._id);
+        
+        res.status(200).json({
+            success: true,
+            data: artworks
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get artwork details
+export const getArtworkDetails = async (req, res, next) => {
+    try {
+        const artwork = await Artwork.findOne({
+            _id: req.params.artworkId,
+            creatorId: req.creator._id
+        });
+
+        if (!artwork) {
+            return next(createError(404, 'Artwork not found'));
+        }
+
+        res.status(200).json({
+            success: true,
+            data: artwork
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Update artwork
+export const updateArtwork = async (req, res, next) => {
+    try {
+        const { title, description, price, commissionRate, categories, tags, dimensions, status } = req.body;
+        
+        const artwork = await Artwork.findOne({
+            _id: req.params.artworkId,
+            creatorId: req.creator._id
+        });
+
+        if (!artwork) {
+            return next(createError(404, 'Artwork not found'));
+        }
+
+        // Handle image updates if provided
+        if (req.files) {
+            if (req.files.image) {
+                // Delete old image
+                await cloudinary.uploader.destroy(artwork.image.public_id);
+                
+                // Upload new image
+                const imageResult = await cloudinary.uploader.upload(req.files.image[0].path, {
+                    folder: 'artworks/previews'
+                });
+                
+                artwork.image = {
+                    public_id: imageResult.public_id,
+                    url: imageResult.secure_url
+                };
+            }
+
+            if (req.files.printableVersion) {
+                // Delete old printable version
+                await cloudinary.uploader.destroy(artwork.printableVersion.public_id);
+                
+                // Upload new printable version
+                const printableResult = await cloudinary.uploader.upload(req.files.printableVersion[0].path, {
+                    folder: 'artworks/printable',
+                    quality: 100
+                });
+                
+                artwork.printableVersion = {
+                    public_id: printableResult.public_id,
+                    url: printableResult.secure_url
+                };
+            }
+        }
+
+        // Update other fields
+        Object.assign(artwork, {
+            title: title || artwork.title,
+            description: description || artwork.description,
+            price: price || artwork.price,
+            commissionRate: commissionRate || artwork.commissionRate,
+            categories: categories ? categories.split(',') : artwork.categories,
+            tags: tags ? tags.split(',') : artwork.tags,
+            dimensions: dimensions || artwork.dimensions,
+            status: status || artwork.status
+        });
+
+        await artwork.save();
+
+        // Create audit log
+        await AuditLog.create({
+            entityType: 'ARTWORK',
+            entityId: artwork._id,
+            action: 'UPDATE',
+            userId: req.creator._id,
+            userType: 'CREATOR',
+            metadata: {
+                title: artwork.title,
+                price: artwork.price.toString(),
+                commissionRate: artwork.commissionRate,
+                status: artwork.status
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Artwork updated successfully',
+            data: artwork
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Delete artwork
+export const deleteArtwork = async (req, res, next) => {
+    try {
+        const artwork = await Artwork.findOne({
+            _id: req.params.artworkId,
+            creatorId: req.creator._id
+        });
+
+        if (!artwork) {
+            return next(createError(404, 'Artwork not found'));
+        }
+
+        // Delete images from Cloudinary
+        await cloudinary.uploader.destroy(artwork.image.public_id);
+        await cloudinary.uploader.destroy(artwork.printableVersion.public_id);
+
+        // Delete artwork
+        await artwork.deleteOne();
+
+        // Create audit log
+        await AuditLog.create({
+            entityType: 'ARTWORK',
+            entityId: artwork._id,
+            action: 'DELETE',
+            userId: req.creator._id,
+            userType: 'CREATOR',
+            metadata: {
+                title: artwork.title
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Artwork deleted successfully'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get commission logs
+export const getCommissionLogs = async (req, res, next) => {
+    try {
+        const commissionLogs = await Commission.find({
+            sellerId: req.creator._id
+        }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: commissionLogs
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get audit logs
+export const getAuditLogs = async (req, res, next) => {
+    try {
+        const auditLogs = await AuditLog.find({
+            userId: req.creator._id,
+            userType: 'CREATOR'
+        }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: auditLogs
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get sales statistics
+export const getSalesStats = async (req, res, next) => {
+    try {
+        const artworks = await Artwork.find({ creatorId: req.creator._id });
+        
+        const stats = {
+            totalArtworks: artworks.length,
+            totalSales: artworks.reduce((sum, artwork) => sum + artwork.totalSales, 0),
+            totalRevenue: artworks.reduce((sum, artwork) => {
+                return sum + parseFloat(artwork.totalRevenue.toString());
+            }, 0),
+            averageRating: artworks.reduce((sum, artwork) => {
+                return sum + (artwork.rating.average * artwork.rating.count);
+            }, 0) / artworks.reduce((sum, artwork) => sum + artwork.rating.count, 0) || 0,
+            totalReviews: artworks.reduce((sum, artwork) => sum + artwork.rating.count, 0)
+        };
+
+        res.status(200).json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
         next(error);
     }
 };
